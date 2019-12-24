@@ -1,2 +1,7 @@
 env
 /__pycache__/
+/app/__pycache__/
+/node_modules/
+/.eslintrc.js
+/package-lock.json
+/package.json
