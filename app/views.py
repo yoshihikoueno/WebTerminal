@@ -32,7 +32,8 @@ def terminal():
 def stdin():
     if request.method == 'GET':
         if 'key' in request.args:
-            key = request.args['key']
+            key_code = request.args['key']
+            key = chr(int(key_code))
             print(f'Received key: {key}')
             bash.send(key)
             return Response()
@@ -45,9 +46,13 @@ def command():
             command = request.args['command']
             print(f'Received command: {command}')
             bash.sendline(command)
-            return jsonify({
-                'stdout': bash.read_nonblocking(size=1000, timeout=5).decode(),
-            })
+            try:
+                stdout = jsonify({
+                    'stdout': bash.read_nonblocking(size=1000, timeout=0).decode(),
+                })
+            except pexpect.TIMEOUT:
+                stdout = None
+            return stdout
     if request.method == 'POST':
         if 'command' in request.form:
             command = request.form['command']
@@ -57,7 +62,10 @@ def command():
 @app.route('/read', methods=['GET', 'POST'])
 def read():
     if request.method == 'GET':
-        stdout = bash.read_nonblocking(size=10000).decode()
+        try:
+            stdout = bash.read_nonblocking(size=1000, timeout=100).decode()
+        except pexpect.TIMEOUT:
+            stdout = ''
         print(f'return: {stdout}, length: {len(stdout)}')
         return jsonify({
             'stdout': stdout,
