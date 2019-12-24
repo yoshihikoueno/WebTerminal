@@ -73,7 +73,29 @@ class Terminal {
     // window.addEventListener("keydown", this.keyDownHandlerRemote.bind(this));
     // window.addEventListener("keypress", this.showKey.bind(this));
     window.addEventListener('keypress', this.keyDownHandlerRemote.bind(this));
-    setInterval(this.receiveStdout.bind(this), this.cursorInterval);
+    // setInterval(this.receiveStdout.bind(this), this.cursorInterval);
+
+    /**
+     * sleep
+     * @param{integer} ms
+     * @return{Promise} promise
+     */
+    function sleep(ms) {
+      return new Promise((resolve) => setTimeout(resolve, ms));
+    }
+    /**
+     * Keep receiving data from the server
+     * @param{context} context
+     */
+    async function keepReceiving(context) {
+      console.log('loaded');
+      while (true) {
+        console.log('looping');
+        context.receiveStdout();
+        await sleep(500);
+      }
+    }
+    keepReceiving(this);
   }
 
   /**
@@ -255,7 +277,8 @@ class Terminal {
    * @param{string} code - SRG code in string.
    */
   handleSRG(code) {
-    console.log('SRG handler');
+    console.log('SRG handler: received code:' + code);
+    var code_array = code.split(';');
   }
 
   /**
@@ -334,8 +357,19 @@ class Terminal {
       this.ctx.font = this.outputFont;
       this.ctx.fillStyle = this.fontColor;
       this.ctx.fillText(current, this.cursor.x, this.cursor.y);
-      this.cursor.x += this.charWidth;
+      this.cursor.x += this.getWidth(current);
     }
+  }
+
+  /**
+   * get width of given character
+   * @param{char} c
+   * @return{integer} width
+   */
+  getWidth(c) {
+    const width = Math.ceil(this.ctx.measureText(c).width);
+    console.log('In: ' + c + ' Out: ' + width);
+    return width;
   }
 
   /**
