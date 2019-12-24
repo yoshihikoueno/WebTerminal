@@ -12,8 +12,6 @@ class Terminal {
    * @param {integer} cursorHeight
    * @param {integer} fontColor - default font color
    * @param {integer} outputFont - default font
-   * @param {integer} prompt_
-   * @param {integer} promptPad
    * @param {integer} leftWindowMargin - left margin of terminal
    * @param {integer} cursorInterval - interval of cursor blinking
    * @param {string} backgroundColor
@@ -25,8 +23,6 @@ class Terminal {
       cursorHeight = 3,
       fontColor = '#C0C0C0',
       outputFont = '12pt Consolas',
-      prompt_ = 'c =\\>',
-      promptPad = 3,
       leftWindowMargin = 2,
       cursorInterval = 300,
       backgroundColor = '#000000',
@@ -39,15 +35,12 @@ class Terminal {
     this.defaultFontColor = fontColor;
     this.outputFont = outputFont;
     this.defaultOutputFont = outputFont;
-    this.prompt_ = prompt_;
-    this.promptPad = promptPad;
     this.leftWindowMargin = leftWindowMargin;
     this.cursorInterval = cursorInterval;
     this.backgroundColor = backgroundColor;
     this.defaultBackgroundColor = backgroundColor;
 
     this.cmd_list = [];
-    this.currentCmd = '';
 
     this.canvas = null;
     this.ctx = null;
@@ -65,7 +58,6 @@ class Terminal {
     this.ctx = this.canvas.getContext('2d');
 
     this.charWidth = Math.ceil(this.ctx.measureText('W').width);
-    this.promptWidth = this.charWidth * this.prompt_.length + this.promptPad;
 
     this.cursor = new Cursor(
         this.leftWindowMargin, this.lineHeight,
@@ -74,10 +66,8 @@ class Terminal {
     console.log('init x:' + this.cursor.x);
     console.log('init y:' + this.cursor.y);
 
-    // window.addEventListener('resize', this.draw.bind(this));
     window.addEventListener('keydown', this.keyDownHandlerRemote.bind(this));
     window.addEventListener('keypress', this.keyPressHandlerRemote.bind(this));
-    // setInterval(this.receiveStdout.bind(this), this.cursorInterval);
 
     /**
      * sleep
@@ -103,21 +93,6 @@ class Terminal {
   }
 
   /**
-   * render a new line
-   * */
-  drawNewLine() {
-    this.ctx.font = this.outputFont;
-    this.ctx.fillStyle = this.fontColor;
-    this.ctx.fillText(
-        this.prompt_,
-        this.leftWindowMargin,
-        this.cursor.y + this.lineHeight,
-    );
-    this.cursor.x = this.promptWidth - this.charWidth;
-    this.cursor.y += this.lineHeight;
-  }
-
-  /**
    * Receive stdout from the server
    * */
   receiveStdout() {
@@ -130,21 +105,6 @@ class Terminal {
       this.printChars.bind(this)(stdout);
     }.bind(this);
     req.send();
-  }
-
-  /**
-   * draw Prompt on a client side.
-   * This is deprecated as prompts will also be sent from the server.
-   * @param{integer} Yoffset - Y-axis offset
-   * */
-  drawPrompt(Yoffset) {
-    this.ctx.font = this.outputFont;
-    this.ctx.fillStyle = this.fontColor;
-    this.ctx.fillText(
-        this.prompt_,
-        this.leftWindowMargin,
-        Yoffset * this.lineHeight,
-    );
   }
 
   /**
@@ -212,67 +172,10 @@ class Terminal {
     if (isSpecial(currentKey) && document.activeElement !== 'text') {
       console.log('special key: ' + currentKey);
       e.preventDefault();
-      // sendKey(e.code);
       this.sendKey(e.keyCode);
-      // this.sendKey(String.prototype.charAt(e.keyCode));
     }
   }
 
-  /**
-   * special key handler.
-   * this handler will attempt to handle a key on a client side.
-   * @param{key} e - key
-   * */
-  keyDownHandler(e) {
-    let currentKey = null;
-    console.log('current: ' + this.currentCmd);
-    if (e.code !== undefined) {
-      currentKey = e.code;
-      console.log('e.code : ' + e.code);
-    } else {
-      currentKey = e.keyCode;
-      console.log('e.keyCode : ' + e.keyCode);
-    }
-    console.log(currentKey);
-    // handle backspace key
-    if (isBackspace(currentKey) && document.activeElement !== 'text') {
-      e.preventDefault();
-      // promptWidth is the beginning of the line with the c:\>
-      if (this.cursor.x > this.promptWidth) {
-        blotPrevChar();
-        if (currentCmd.length > 0) currentCmd = currentCmd.slice(0, -1);
-      }
-    }
-    // handle <ENTER> key
-    if (isEnter(currentKey)) {
-      this.blotOutCursor();
-      if (this.currentCmd.length > 0) {
-        this.cmd_list.push(this.currentCmd);
-        this.currentCmd = '';
-      }
-    }
-  }
-
-  /**
-   * Print a key to terminal
-   * @param{key} e - key
-   */
-  showKey(e) {
-    this.blotOutCursor();
-
-    this.ctx.font = this.outputFont;
-    this.ctx.fillStyle = this.fontColor;
-
-    this.ctx.fillText(
-        String.fromCharCode(e.charCode),
-        this.cursor.x,
-        this.cursor.y,
-    );
-    this.cursor.x += this.charWidth;
-    console.log(this.cursor.x);
-    console.log(this.cursor.y);
-    this.currentCmd += String.fromCharCode(e.charCode);
-  }
 
   /**
    * Print stdout into the terminal.
@@ -575,17 +478,4 @@ function argMin(array) {
   return [].map
       .call(array, (x, i) => [x, i])
       .reduce((r, a) => (a[0] < r[0] ? a : r))[1];
-}
-
-/**
- * Padded int to string
- * @param{integer} integer
- * @param{integer} size
- * @param{integer} base
- * @return{string} string representation of the given int
- */
-function intToStringPadded(integer, size, base = 10) {
-  let s = integer.toString(base);
-  while (s.length < (size || 2)) s = '0' + s;
-  return s;
 }
