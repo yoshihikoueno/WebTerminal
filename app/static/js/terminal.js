@@ -28,6 +28,7 @@ class Terminal {
       promptPad = 3,
       leftWindowMargin = 2,
       cursorInterval = 300,
+      backgroundColor = '#000000',
   ) {
     this.lineHeight = lineHeight;
     this.widthOffset = widthOffset;
@@ -39,6 +40,7 @@ class Terminal {
     this.promptPad = promptPad;
     this.leftWindowMargin = leftWindowMargin;
     this.cursorInterval = cursorInterval;
+    this.backgroundColor = backgroundColor;
 
     this.cmd_list = [];
     this.currentCmd = '';
@@ -273,12 +275,51 @@ class Terminal {
   }
 
   /**
-   * SRG (Select Render Graphics) code handler.
-   * @param{string} code - SRG code in string.
+   * SGR (Select Graphic Rendition) code handler.
+   * this func is capable of handling the packed codes such as '01;32'.
+   * @param{string} code - SGR code in string.
    */
-  handleSRG(code) {
-    console.log('SRG handler: received code:' + code);
-    var code_array = code.split(';');
+  handleSGR(code) {
+    console.log('SGR handler: received code:' + code);
+    const codeArray = code.split(';');
+    codeArray.forEach(
+        (codeString) => this.handleSingleSGR(parseInt(codeString)),
+    );
+  }
+
+  /**
+   * SGR (Select Graphic Rendition) code handler.
+   * @param{integer} code - SGR code in integer.
+   */
+  handleSingleSGR(code) {
+    if (code >= 30 && code <= 37) {
+      // set foreground color
+      this.setFontColor();
+    } else if (code >= 40 && code <= 47) {
+      // set backgroundColor
+      this.setBackgroundColor();
+    } else {
+      // unimplemented code
+      console.log('Igonored unimplemented SGR code: ' + code);
+    }
+  }
+
+  /**
+   * change the background color
+   * @param{string} newColor
+   */
+  setBackgroundColor(newColor) {
+    this.backgroundColor = newColor;
+    this.draw();
+  }
+
+  /**
+   * change the font color
+   * @param{string} newColor
+   */
+  setFontColor(newColor) {
+    this.fontColor = newColor;
+    this.draw();
   }
 
   /**
@@ -346,7 +387,7 @@ class Terminal {
           const command = CSIlookup[indicators[indicatorIdx]];
           if (command == 'select_graphic_rendition') {
             const sgrCommand = chars.slice(i + 2, i + 1 + position);
-            this.handleSRG(sgrCommand);
+            this.handleSGR(sgrCommand);
             i += 1 + position;
           }
           continue;
@@ -388,7 +429,7 @@ class Terminal {
     this.ctx.canvas.width = window.innerWidth-5;
     this.ctx.canvas.height = window.innerHeight-5;
 
-    this.ctx.fillStyle = '#000000';
+    this.ctx.fillStyle = this.backgroundColor;
     this.ctx.fillRect(0, 0, this.ctx.canvas.width, this.ctx.canvas.height);
     this.ctx.font = this.outputFont;
     this.ctx.fillStyle = this.fontColor;
