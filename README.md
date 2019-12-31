@@ -50,7 +50,7 @@ Open the browser and access <http://localhost:5000>.
 * ESC code to move cursor backward
 * ESC code to change text color
 * ESC code to change background color
-* Auto resize the canvas when there's too many lines
+* Auto resize the canvas when there're too many lines
 * Redraw the content on window resize
 
 # Ignored features
