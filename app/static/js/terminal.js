@@ -40,7 +40,7 @@ class Terminal {
     this.backgroundColor = backgroundColor;
     this.defaultBackgroundColor = backgroundColor;
 
-    this.cmd_list = [];
+    this.outputHistory = [];
 
     this.canvas = null;
     this.ctx = null;
@@ -57,8 +57,6 @@ class Terminal {
     this.canvas = document.getElementById('terminal');
     this.ctx = this.canvas.getContext('2d');
 
-    this.charWidth = Math.ceil(this.ctx.measureText('W').width);
-
     this.cursor = new Cursor(
         this.leftWindowMargin, this.lineHeight,
         this.cursorWidth, this.cursorHeight, this.cursorInterval, this,
@@ -66,6 +64,7 @@ class Terminal {
     console.log('init x:' + this.cursor.x);
     console.log('init y:' + this.cursor.y);
 
+    window.addEventListener('resize', this.draw.bind(this));
     window.addEventListener('keydown', this.keyDownHandlerRemote.bind(this));
     window.addEventListener('keypress', this.keyPressHandlerRemote.bind(this));
 
@@ -108,18 +107,42 @@ class Terminal {
   }
 
   /**
+   * remove a line
+   */
+  blotCurrentLine() {
+    console.log('Not implemented: blotCurrentLine');
+  }
+
+  /**
+   * remove to the beginning of the line
+   */
+  blotToBeginning() {
+    console.log('Not implemented: blotToBeginning');
+  }
+
+  /**
    * Remove the previous character
    * */
   blotPrevChar() {
+    const prevChar = this.textOutputHistory.pop();
     this.blotOutCursor();
-    this.ctx.fillStyle = '#000000';
-    this.cursor.x -= this.charWidth;
+    this.ctx.fillStyle = this.backgroundColor;
     this.ctx.fillRect(
         this.cursor.x,
-        this.cursor.y - (this.charWidth + this.widthOffset),
-        this.cursor.width + 3,
-        15,
+        this.cursor.y + this.cursor.height,
+        this.getWidth(prevChar),
+        - (this.lineHeight + this.cursor.height),
     );
+  }
+
+  /**
+   * Move the cursor backward
+   * */
+  moveCursorBackward() {
+    const prevChar = this.textOutputHistory[this.textOutputHistory.length - 1];
+    this.blotOutCursor();
+    this.ctx.fillStyle = this.backgroundColor;
+    this.cursor.x -= this.getWidth(prevChar);
   }
 
   /**
@@ -174,28 +197,6 @@ class Terminal {
       e.preventDefault();
       this.sendKey(e.keyCode);
     }
-  }
-
-
-  /**
-   * Print stdout into the terminal.
-   * @param{string} content - content of stdout
-   */
-  printStdout(content) {
-    const lines = content.split('\n');
-    lines.forEach((line) => {
-      this.cursor.x = 0;
-      this.cursor.y += this.lineHeight;
-      this.blotOutCursor();
-
-      this.ctx.font = this.outputFont;
-      this.ctx.fillStyle = this.fontColor;
-
-      this.ctx.fillText(line, this.cursor.x, this.cursor.y);
-      this.cursor.x += this.charWidth * line.length;
-      console.log(this.cursor.x);
-      console.log(this.cursor.y);
-    });
   }
 
   /**
@@ -307,11 +308,23 @@ class Terminal {
 
     for (let i = 0; i < chars.length; i++) {
       const current = chars[i];
+      this.outputHistory.push(current);
       this.blotOutCursor();
 
       if (current == '\n') {
         this.newLine();
         console.log('processded newline');
+        continue;
+      }
+
+      if (current == '\x08') {
+        console.log('handled BS');
+        this.moveCursorBackward();
+        continue;
+      }
+
+      if (current == '\x07') {
+        console.log('ignroe bell');
         continue;
       }
 
@@ -327,6 +340,8 @@ class Terminal {
         } else if (chars[i + 1] == '[') {
           // control sequence introducer(CSI)
           const indicators = Object.keys(CSIlookup);
+
+          // Determine CSI code content
           let positionsIndices = indicators.map(
               (c, idx) => [chars.slice(i+1).indexOf(c), idx],
           );
@@ -339,9 +354,27 @@ class Terminal {
           const indicatorIdx = indices[argMin(positions)];
           const position = positions[argMin(positions)];
           const command = CSIlookup[indicators[indicatorIdx]];
+
           if (command == 'select_graphic_rendition') {
             const sgrCommand = chars.slice(i + 2, i + 1 + position);
             this.handleSGR(sgrCommand);
+            i += 1 + position;
+          } else if (command == 'erase_in_line') {
+            let rangeSpecifier = chars.slice(i + 2, i + 1 + position);
+            if (rangeSpecifier == '') rangeSpecifier = 0;
+
+            switch (rangeSpecifier) {
+              case 0:
+                this.blotPrevChar();
+                break;
+              case 1:
+                this.blotToBeginning();
+                break;
+              case 2:
+                this.blotCurrentLine();
+                break;
+            }
+
             i += 1 + position;
           }
           continue;
@@ -349,6 +382,7 @@ class Terminal {
       }
 
       console.log('char print: ' + current);
+      this.textOutputHistory.push(current);
       this.ctx.font = this.outputFont;
       this.ctx.fillStyle = this.fontColor;
       this.ctx.fillText(current, this.cursor.x, this.cursor.y);
@@ -381,11 +415,22 @@ class Terminal {
   draw() {
     this.ctx.canvas.width = window.innerWidth-5;
     this.ctx.canvas.height = window.innerHeight-5;
+    this.cursor.reset();
 
     this.ctx.fillStyle = this.backgroundColor;
     this.ctx.fillRect(0, 0, this.ctx.canvas.width, this.ctx.canvas.height);
     this.ctx.font = this.outputFont;
     this.ctx.fillStyle = this.fontColor;
+
+    const outputHistoryTemp = this.outputHistory;
+
+    // holds ALL the outputs including control sequenses
+    this.outputHistory = [];
+
+    // holds only visible characters.
+    this.textOutputHistory = [];
+
+    this.printChars(outputHistoryTemp.join(''));
   }
 }
 
@@ -405,13 +450,23 @@ class Cursor {
    */
   constructor(x, y, width, height, interval, terminal) {
     this.x = x;
+    this.initialX = x;
     this.y = y;
+    this.initialY = y;
     this.width = width;
     this.height = height;
     this.terminal = terminal;
     this.flashCounter = 0;
 
     setInterval(this.flash.bind(this), interval);
+  }
+
+  /**
+   * reset its position
+   */
+  reset() {
+    this.x = this.initialX;
+    this.y = this.initialY;
   }
 
   /**
@@ -429,7 +484,7 @@ class Cursor {
         break;
       }
       default: {
-        this.terminal.ctx.fillStyle = '#000000';
+        this.terminal.ctx.fillStyle = this.terminal.fontColor;
         this.terminal.ctx.fillRect(this.x, this.y, this.width, this.height);
         this.flashCounter= 1;
       }
