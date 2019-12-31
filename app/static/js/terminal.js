@@ -104,6 +104,7 @@ class Terminal {
         this.canvas.height = this.cursor.y;
         this.draw();
         console.log('this.canvas.height = ' + this.canvas.height);
+        window.scrollTo(0, document.body.scrollHeight);
       }
       this.receiveStdout();
     }.bind(this);
