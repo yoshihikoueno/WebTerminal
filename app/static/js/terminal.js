@@ -82,11 +82,8 @@ class Terminal {
      */
     async function keepReceiving(context) {
       console.log('loaded');
-      while (true) {
-        console.log('looping');
-        context.receiveStdout();
-        await sleep(100);
-      }
+      context.receiveStdout();
+      await sleep(100);
     }
     keepReceiving(this);
   }
@@ -102,8 +99,16 @@ class Terminal {
       const stdout = content['stdout'];
       console.log('stdout: ' + stdout);
       this.printChars.bind(this)(stdout);
+
+      if (this.cursor.y > this.canvas.height) {
+        this.canvas.height = this.cursor.y;
+        this.draw();
+        console.log('this.canvas.height = ' + this.canvas.height);
+      }
+      this.receiveStdout();
     }.bind(this);
     req.send();
+    console.log('waiting for the server');
   }
 
   /**
@@ -307,8 +312,11 @@ class Terminal {
     };
 
     for (let i = 0; i < chars.length; i++) {
+      this.outputHistory.push(chars[i]);
+    }
+
+    for (let i = 0; i < chars.length; i++) {
       const current = chars[i];
-      this.outputHistory.push(current);
       this.blotOutCursor();
 
       if (current == '\n') {
@@ -414,7 +422,11 @@ class Terminal {
    */
   draw() {
     this.ctx.canvas.width = window.innerWidth-5;
-    this.ctx.canvas.height = window.innerHeight-5;
+    if (this.cursor.y < window.innerHeight - 5) {
+      this.ctx.canvas.height = window.innerHeight-5;
+    } else {
+      this.ctx.canvas.height = this.cursor.y + 5;
+    }
     this.cursor.reset();
 
     this.ctx.fillStyle = this.backgroundColor;
