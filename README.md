@@ -2,6 +2,9 @@
 
 A software to execute Bash on a browser!
 
+# Screenshot
+![screenshot](./screenshot.png)
+
 
 # Requiremnts
 
